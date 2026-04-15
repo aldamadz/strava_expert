@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Strava Expert",
+    "slug": "strava-expert-mobile",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "android": {
+      "package": "com.stravaexpert.mobile",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyB4-x2tEmKVHlRZQr0caACO2T1x5BJ17Ic"
+        }
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_BACKGROUND_LOCATION",
+        "FOREGROUND_SERVICE",
+        "FOREGROUND_SERVICE_LOCATION"
+      ]
+    },
+    "ios": {
+      "config": {
+        "googleMapsApiKey": "GANTI_DENGAN_GOOGLE_MAPS_API_KEY_IOS"
+      }
+    }
+  }
+}

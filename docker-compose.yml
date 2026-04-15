@@ -1,0 +1,37 @@
+services:
+  api:
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    container_name: strava_expert_api
+    environment:
+      PORT: 8000
+      HOST: 0.0.0.0
+      DATABASE_URL: postgresql://strava:strava@postgres:5432/strava_expert
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "18001:8000"
+
+  postgres:
+    image: postgis/postgis:16-3.4
+    container_name: strava_expert_postgres
+    environment:
+      POSTGRES_USER: strava
+      POSTGRES_PASSWORD: strava
+      POSTGRES_DB: strava_expert
+    ports:
+      - "55432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7
+    container_name: strava_expert_redis
+    ports:
+      - "6379:6379"
+
+volumes:
+  pgdata:

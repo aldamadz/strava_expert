@@ -63,17 +63,17 @@ export default function ShareCardPreview({
         <View style={styles.referenceCenterWrap}>
           <View style={styles.referenceStatsStack}>
             <Text style={[styles.referenceLabel, { fontSize: 10 * templateScale }]}>Jarak</Text>
-            <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 30 * templateScale }]}>
+            <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 34 * templateScale }]}>
               {selectedDummy.distanceKm.toFixed(2).replace(".", ",")} km
             </Text>
 
             <Text style={[styles.referenceLabelGap, { fontSize: 10 * templateScale }]}>Pace</Text>
-            <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 30 * templateScale }]}>
+            <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 34 * templateScale }]}>
               {selectedDummy.avgPace} /km
             </Text>
 
             <Text style={[styles.referenceLabelGap, { fontSize: 10 * templateScale }]}>Waktu</Text>
-            <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 30 * templateScale }]}>
+            <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 34 * templateScale }]}>
               {formatDuration(selectedDummy.durationSec)}
             </Text>
           </View>
@@ -140,18 +140,17 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   },
   referenceLabelGap: {
-    marginTop: 8,
+    marginTop: 20,
     color: "#cbd5e1",
     fontSize: 10,
     fontWeight: "700"
   },
   referenceValue: {
-    marginTop: 2,
+    marginTop: 5,
     color: "#f8fafc",
     fontSize: 26,
-    lineHeight: 30,
+    lineHeight: 32,
     fontWeight: "900",
     letterSpacing: 0.2
   }
 });
-

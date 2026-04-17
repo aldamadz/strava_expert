@@ -1,28 +1,38 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import ActionButton from "../components/common/ActionButton";
 import ShareCardPreview from "../components/share/ShareCardPreview";
-import RouteEditorPanel from "../components/share/RouteEditorPanel";
 import { formatDuration } from "../utils/tracking";
 
 export default function ActivityScreen({ share }) {
   return (
     <>
-      <Text style={styles.sectionTitle}>Activity Dummy</Text>
+      <Text style={styles.sectionTitle}>Activity</Text>
       <Text style={styles.sectionSubtitle}>
-        Pilih track, atur background, lalu share sebagai overlay untuk Story.
+        Riwayat track tersimpan. Pilih aktivitas, atur background, lalu share overlay untuk Story.
       </Text>
 
       <View style={styles.activityList}>
-        {share.dummyActivities.map((activity) => {
+        {share.activities.map((activity) => {
           const isActive = activity.id === share.selectedDummyId;
           return (
             <View key={activity.id} style={[styles.activityCard, isActive ? styles.activityCardActive : null]}>
               <Pressable onPress={() => share.setSelectedDummyId(activity.id)}>
                 <Text style={styles.activityTitle}>{activity.title}</Text>
                 <Text style={styles.activityMeta}>{activity.dateLabel}</Text>
-                <Text style={styles.activityStats}>
-                  {activity.distanceKm.toFixed(1)} km | {formatDuration(activity.durationSec)} | {activity.avgPace}/km
-                </Text>
+                <View style={styles.activityStatsRow}>
+                  <View style={styles.statChip}>
+                    <Text style={styles.statChipLabel}>Jarak</Text>
+                    <Text style={styles.statChipValue}>{activity.distanceKm.toFixed(1)} km</Text>
+                  </View>
+                  <View style={styles.statChip}>
+                    <Text style={styles.statChipLabel}>Waktu</Text>
+                    <Text style={styles.statChipValue}>{formatDuration(activity.durationSec)}</Text>
+                  </View>
+                  <View style={styles.statChip}>
+                    <Text style={styles.statChipLabel}>Pace</Text>
+                    <Text style={styles.statChipValue}>{activity.avgPace}/km</Text>
+                  </View>
+                </View>
                 <Text style={styles.activitySubStats}>
                   Elevation {activity.elevationGainM} m | {activity.calories} kcal
                 </Text>
@@ -52,27 +62,6 @@ export default function ActivityScreen({ share }) {
           shareRoutePath={share.shareRoutePath}
           routeStrokeWidth={share.routeStrokeWidth}
           selectedDummy={share.selectedDummy}
-        />
-
-        <RouteEditorPanel
-          backgroundUri={share.backgroundUri}
-          photoOpacity={share.photoOpacity}
-          setPhotoOpacity={share.setPhotoOpacity}
-          routeScale={share.routeScale}
-          routeOffsetX={share.routeOffsetX}
-          routeOffsetY={share.routeOffsetY}
-          routeStrokeWidth={share.routeStrokeWidth}
-          templateScale={share.templateScale}
-          backgroundScale={share.backgroundScale}
-          adjustScale={share.adjustScale}
-          adjustOffsetX={share.adjustOffsetX}
-          adjustOffsetY={share.adjustOffsetY}
-          adjustStrokeWidth={share.adjustStrokeWidth}
-          adjustTemplateScale={share.adjustTemplateScale}
-          adjustBackgroundScale={share.adjustBackgroundScale}
-          routeColor={share.routeColor}
-          setRouteColor={share.setRouteColor}
-          resetRouteEditor={share.resetRouteEditor}
         />
 
         <View style={styles.builderActions}>
@@ -136,11 +125,30 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontSize: 12
   },
-  activityStats: {
+  activityStatsRow: {
     marginTop: 8,
+    flexDirection: "row",
+    gap: 10
+  },
+  statChip: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(71, 85, 105, 0.4)",
+    backgroundColor: "#0f172a",
+    paddingVertical: 8,
+    paddingHorizontal: 8
+  },
+  statChipLabel: {
+    color: "#94a3b8",
+    fontSize: 10,
+    fontWeight: "700"
+  },
+  statChipValue: {
+    marginTop: 4,
     color: "#e2e8f0",
     fontSize: 13,
-    fontWeight: "600"
+    fontWeight: "700"
   },
   activitySubStats: {
     marginTop: 4,

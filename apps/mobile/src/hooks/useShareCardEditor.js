@@ -1,18 +1,19 @@
 import { Alert, Linking } from "react-native";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
 import { dummyActivities } from "../data/dummyActivities";
-import { buildNormalizedRoute, buildSmoothSvgPath } from "../utils/shareRoute";
+import { buildNormalizedRoute, buildSmoothSvgPath, fitRouteToBounds } from "../utils/shareRoute";
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-export default function useShareCardEditor() {
-  const [selectedDummyId, setSelectedDummyId] = useState(dummyActivities[0].id);
+export default function useShareCardEditor({ savedActivities = [] } = {}) {
+  const activities = useMemo(() => [...savedActivities, ...dummyActivities], [savedActivities]);
+  const [selectedDummyId, setSelectedDummyId] = useState(activities[0]?.id ?? "");
   const [backgroundUri, setBackgroundUri] = useState("");
   const [photoOpacity, setPhotoOpacity] = useState(0.75);
   const [isSharingImage, setIsSharingImage] = useState(false);
@@ -20,7 +21,7 @@ export default function useShareCardEditor() {
   const [shareCardLayout, setShareCardLayout] = useState({ width: 320, height: 560 });
   const [backgroundScale, setBackgroundScale] = useState(1);
   const [templateScale, setTemplateScale] = useState(1);
-  const [routeScale, setRouteScale] = useState(1);
+  const [routeScale, setRouteScale] = useState(1.28);
   const [routeOffsetX, setRouteOffsetX] = useState(0);
   const [routeOffsetY, setRouteOffsetY] = useState(0);
   const [routeStrokeWidth, setRouteStrokeWidth] = useState(5);
@@ -29,17 +30,27 @@ export default function useShareCardEditor() {
   const shareCardRef = useRef(null);
   const overlayOnlyRef = useRef(null);
 
-  const selectedDummy =
-    dummyActivities.find((item) => item.id === selectedDummyId) ?? dummyActivities[0];
+  const selectedDummy = activities.find((item) => item.id === selectedDummyId) ?? activities[0];
+
+  useEffect(() => {
+    if (!selectedDummyId && activities[0]?.id) {
+      setSelectedDummyId(activities[0].id);
+      return;
+    }
+    const exists = activities.some((item) => item.id === selectedDummyId);
+    if (!exists && activities[0]?.id) {
+      setSelectedDummyId(activities[0].id);
+    }
+  }, [activities, selectedDummyId]);
 
   const baseCanvasWidth = Math.max(shareCardLayout.width - 24, 220);
   const baseCanvasHeight = Math.max(shareCardLayout.height - 120, 260);
-  const routeCanvasWidth = Math.max(Math.round(baseCanvasWidth * 0.58), 160);
-  const routeCanvasHeight = Math.max(Math.round(baseCanvasHeight * 0.43), 120);
+  const routeCanvasWidth = Math.max(Math.round(baseCanvasWidth * 0.68), 180);
+  const routeCanvasHeight = Math.max(Math.round(baseCanvasHeight * 0.5), 140);
 
   const baseShareRoute = useMemo(
-    () => buildNormalizedRoute(selectedDummy.route, routeCanvasWidth, routeCanvasHeight),
-    [selectedDummy.route, routeCanvasWidth, routeCanvasHeight]
+    () => buildNormalizedRoute(selectedDummy?.route ?? [], routeCanvasWidth, routeCanvasHeight, 8),
+    [selectedDummy?.route, routeCanvasWidth, routeCanvasHeight]
   );
   const transformedShareRoute = useMemo(() => {
     if (baseShareRoute.length === 0) {
@@ -54,10 +65,12 @@ export default function useShareCardEditor() {
     });
   }, [baseShareRoute, routeScale, routeOffsetX, routeOffsetY, routeCanvasWidth, routeCanvasHeight]);
 
-  const shareRoutePath = useMemo(
-    () => buildSmoothSvgPath(transformedShareRoute),
-    [transformedShareRoute]
+  const fittedShareRoute = useMemo(
+    () => fitRouteToBounds(transformedShareRoute, routeCanvasWidth, routeCanvasHeight, routeStrokeWidth + 18),
+    [transformedShareRoute, routeCanvasWidth, routeCanvasHeight, routeStrokeWidth]
   );
+
+  const shareRoutePath = useMemo(() => buildSmoothSvgPath(fittedShareRoute), [fittedShareRoute]);
 
   async function pickShareBackground() {
     try {
@@ -190,7 +203,7 @@ export default function useShareCardEditor() {
   }
 
   function resetRouteEditor() {
-    setRouteScale(1);
+    setRouteScale(1.28);
     setRouteOffsetX(0);
     setRouteOffsetY(0);
     setRouteStrokeWidth(5);
@@ -200,7 +213,7 @@ export default function useShareCardEditor() {
   }
 
   return {
-    dummyActivities,
+    activities,
     selectedDummy,
     selectedDummyId,
     setSelectedDummyId,
@@ -235,4 +248,3 @@ export default function useShareCardEditor() {
     resetRouteEditor
   };
 }
-

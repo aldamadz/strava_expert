@@ -12,7 +12,21 @@ import {
   toTrackingSample
 } from "../tasks/trackingTask";
 
-export default function useTracking() {
+function formatPace(durationSec, distanceMeters) {
+  if (durationSec <= 0 || distanceMeters <= 0) {
+    return "--:--";
+  }
+  const paceSecPerKm = durationSec / (distanceMeters / 1000);
+  const mm = Math.floor(paceSecPerKm / 60);
+  const ss = Math.floor(paceSecPerKm % 60);
+  return `${String(mm).padStart(2, "0")}:${String(ss).padStart(2, "0")}`;
+}
+
+const MIN_SAVE_DURATION_SECONDS = 10;
+const MIN_SAVE_DISTANCE_METERS = 30;
+const MIN_SAVE_POINTS = 2;
+
+export default function useTracking({ onSessionSaved } = {}) {
   const [permission, setPermission] = useState("checking");
   const [isTracking, setIsTracking] = useState(false);
   const [isFocusingGps, setIsFocusingGps] = useState(false);
@@ -28,6 +42,31 @@ export default function useTracking() {
 
   const watchSubscriptionRef = useRef(null);
   const syncIntervalRef = useRef(null);
+  const durationRef = useRef(0);
+  const distanceRef = useRef(0);
+  const startedAtRef = useRef(null);
+  const pathRef = useRef([]);
+  const onSessionSavedRef = useRef(onSessionSaved);
+
+  useEffect(() => {
+    onSessionSavedRef.current = onSessionSaved;
+  }, [onSessionSaved]);
+
+  useEffect(() => {
+    durationRef.current = durationSeconds;
+  }, [durationSeconds]);
+
+  useEffect(() => {
+    distanceRef.current = distanceMeters;
+  }, [distanceMeters]);
+
+  useEffect(() => {
+    pathRef.current = path;
+  }, [path]);
+
+  useEffect(() => {
+    startedAtRef.current = startedAtMs;
+  }, [startedAtMs]);
 
   const gpsReady = useMemo(() => {
     if (gpsAccuracyM == null) {
@@ -226,7 +265,78 @@ export default function useTracking() {
     }
   }
 
-  async function stopTracking() {
+  function buildSavedSession() {
+    const duration = durationRef.current;
+    const distance = distanceRef.current;
+    const sessionPath = Array.isArray(pathRef.current) ? pathRef.current : [];
+
+    const hasAnyProgress = duration > 0 || distance > 0 || sessionPath.length > 0;
+    if (!hasAnyProgress) {
+      return {
+        session: null,
+        reason: "Belum ada progres track. Mulai sesi dulu sebelum simpan."
+      };
+    }
+
+    if (
+      duration < MIN_SAVE_DURATION_SECONDS ||
+      distance < MIN_SAVE_DISTANCE_METERS ||
+      sessionPath.length < MIN_SAVE_POINTS
+    ) {
+      return {
+        session: null,
+        reason: `Track terlalu pendek untuk disimpan. Minimal ${MIN_SAVE_DURATION_SECONDS} detik, ${MIN_SAVE_DISTANCE_METERS} m, dan ${MIN_SAVE_POINTS} titik GPS.`
+      };
+    }
+
+    const startedAt = startedAtRef.current ?? Date.now();
+    const startedDate = new Date(startedAt);
+    const distanceKm = Number((distance / 1000).toFixed(2));
+    const calories = Math.max(40, Math.round(distanceKm * 62));
+    const sessionTime = startedDate.toLocaleTimeString("id-ID", {
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+    const sessionDate = startedDate.toLocaleDateString("id-ID", {
+      day: "2-digit",
+      month: "short"
+    });
+    const title = `Run ${distanceKm.toFixed(1)}K - ${sessionDate} ${sessionTime}`;
+
+    return {
+      session: {
+      id: `trk-${startedAt}`,
+      title,
+      dateLabel: startedDate.toLocaleDateString("id-ID", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      }),
+      distanceKm,
+      durationSec: duration,
+      avgPace: formatPace(duration, distance),
+      elevationGainM: 0,
+      calories,
+      route: sessionPath
+        .map((point) => ({
+          latitude: Number(point.latitude),
+          longitude: Number(point.longitude)
+        }))
+        .filter((point) => Number.isFinite(point.latitude) && Number.isFinite(point.longitude))
+      },
+      reason: ""
+    };
+  }
+
+  async function stopTracking({ saveSession = false } = {}) {
+    let savedSession = null;
+    let saveBlockedReason = "";
+    if (saveSession) {
+      const result = buildSavedSession();
+      savedSession = result.session;
+      saveBlockedReason = result.reason;
+    }
+
     if (watchSubscriptionRef.current) {
       watchSubscriptionRef.current.remove();
       watchSubscriptionRef.current = null;
@@ -239,6 +349,12 @@ export default function useTracking() {
     setIsBackgroundActive(false);
     setIsTracking(false);
     setStartedAtMs(null);
+
+    if (savedSession && typeof onSessionSavedRef.current === "function") {
+      onSessionSavedRef.current(savedSession);
+    } else if (saveSession && saveBlockedReason) {
+      setLocationError(saveBlockedReason);
+    }
   }
 
   async function resetTracking() {

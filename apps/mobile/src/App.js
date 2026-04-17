@@ -11,6 +11,7 @@ import {
   View,
   useWindowDimensions
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomTab from "./components/common/BottomTab";
@@ -30,11 +31,17 @@ const DARK_MAP_STYLE = [
   { featureType: "poi", elementType: "geometry", stylers: [{ color: "#1e293b" }] },
   { featureType: "transit", stylers: [{ visibility: "off" }] }
 ];
+const SAVED_ACTIVITIES_KEY = "auratrack_saved_activities_v1";
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("tracking");
   const [mapReady, setMapReady] = useState(false);
-  const [panelSnap, setPanelSnap] = useState("half");
+  const [savedActivities, setSavedActivities] = useState([]);
+  const [panelSnapByTab, setPanelSnapByTab] = useState({
+    tracking: "half",
+    activity: "half",
+    profile: "half"
+  });
   const [panelHeight, setPanelHeight] = useState(360);
   const mapRef = useRef(null);
   const panelHeightRef = useRef(360);
@@ -42,20 +49,60 @@ export default function App() {
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
 
-  const tracking = useTracking();
-  const share = useShareCardEditor();
+  useEffect(() => {
+    let mounted = true;
+    AsyncStorage.getItem(SAVED_ACTIVITIES_KEY)
+      .then((raw) => {
+        if (!mounted || !raw) {
+          return;
+        }
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSavedActivities(parsed);
+        }
+      })
+      .catch(() => {
+        // ignore invalid payload
+      });
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const tracking = useTracking({
+    onSessionSaved: (activity) => {
+      setSavedActivities((prev) => {
+        const next = [activity, ...prev].slice(0, 40);
+        AsyncStorage.setItem(SAVED_ACTIVITIES_KEY, JSON.stringify(next)).catch(() => {
+          // ignore storage write errors
+        });
+        return next;
+      });
+      setActiveTab("activity");
+    }
+  });
+  const share = useShareCardEditor({ savedActivities });
 
   const activeMapPath = activeTab === "activity" ? share.selectedDummy.route : tracking.path;
   const activeLastPoint = activeMapPath.length > 0 ? activeMapPath[activeMapPath.length - 1] : null;
   const isTrackingFocusMode = activeTab === "tracking" && tracking.isTracking && !tracking.showMap;
   const showBaseMap = activeTab === "activity" || (activeTab === "tracking" && tracking.showMap);
   const tabBarBottom = Math.max(12, insets.bottom + 8);
+  const panelSnap = panelSnapByTab[activeTab] ?? "half";
   const showCollapsedPanel = !isTrackingFocusMode && panelSnap === "collapsed";
   const isFullPanel = !isTrackingFocusMode && panelSnap === "full";
   const routeColor = activeTab === "activity" ? "#22d3ee" : "#f97316";
   const collapsedHeight = 118;
   const halfHeight = Math.min(Math.round(screenHeight * 0.56), 500);
   const fullHeight = Math.min(Math.round(screenHeight * 0.86), screenHeight - (insets.top + 16));
+
+  function setActivePanelSnap(nextSnap) {
+    setPanelSnapByTab((prev) => ({
+      ...prev,
+      [activeTab]: nextSnap
+    }));
+  }
 
   function snapToNearest(nextHeight) {
     const snapPoints = [
@@ -66,23 +113,23 @@ export default function App() {
     const nearest = snapPoints.reduce((best, current) => {
       return Math.abs(current.value - nextHeight) < Math.abs(best.value - nextHeight) ? current : best;
     }, snapPoints[0]);
-    setPanelSnap(nearest.key);
+    setActivePanelSnap(nearest.key);
     panelHeightRef.current = nearest.value;
     setPanelHeight(nearest.value);
   }
 
   function cyclePanelSnap() {
     if (panelSnap === "collapsed") {
-      setPanelSnap("half");
+      setActivePanelSnap("half");
       setPanelHeight(halfHeight);
       return;
     }
     if (panelSnap === "half") {
-      setPanelSnap("full");
+      setActivePanelSnap("full");
       setPanelHeight(fullHeight);
       return;
     }
-    setPanelSnap("collapsed");
+    setActivePanelSnap("collapsed");
     setPanelHeight(collapsedHeight);
   }
 
@@ -110,7 +157,7 @@ export default function App() {
           snapToNearest(panelHeightRef.current);
         }
       }),
-    [collapsedHeight, fullHeight]
+    [collapsedHeight, fullHeight, activeTab]
   );
 
   useEffect(() => {
@@ -222,8 +269,8 @@ export default function App() {
             <Text style={styles.brand}>AuraTrack</Text>
             <Text style={styles.brandSub}>Outdoor Performance Lab</Text>
           </View>
-          <View style={[styles.statusPill, tracking.isTracking ? styles.statusPillLive : styles.statusPillIdle]}>
-            <Text style={styles.statusPillText}>{tracking.isTracking ? "LIVE" : "IDLE"}</Text>
+          <View style={styles.statusDotWrap}>
+            <View style={[styles.statusDot, tracking.isTracking ? styles.statusDotActive : styles.statusDotIdle]} />
           </View>
         </View>
       ) : null}
@@ -259,7 +306,7 @@ export default function App() {
             </Text>
             {activeTab === "tracking" ? (
               <Text style={styles.collapsedInfoSub}>
-                {`${Math.max(0, Math.floor(tracking.durationSeconds / 60))}m • ${(tracking.distanceMeters / 1000).toFixed(2)} km • ${avgPace}`}
+                {`${Math.max(0, Math.floor(tracking.durationSeconds / 60))}m - ${(tracking.distanceMeters / 1000).toFixed(2)} km - ${avgPace}`}
               </Text>
             ) : null}
           </View>
@@ -289,7 +336,7 @@ export default function App() {
               showMap={tracking.showMap}
               onToggleMap={() => tracking.setShowMap((prev) => !prev)}
               onStart={tracking.startTracking}
-              onStop={tracking.stopTracking}
+              onStop={() => tracking.stopTracking({ saveSession: true })}
               onReset={tracking.resetTracking}
             />
           ) : null}
@@ -385,22 +432,26 @@ const styles = StyleSheet.create({
     fontSize: 11,
     marginTop: 2
   },
-  statusPill: {
+  statusDotWrap: {
+    width: 36,
+    height: 36,
     borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 8
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.35)",
+    backgroundColor: "rgba(2, 6, 23, 0.74)"
   },
-  statusPillIdle: {
-    backgroundColor: "rgba(51, 65, 85, 0.85)"
+  statusDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 999
   },
-  statusPillLive: {
-    backgroundColor: "rgba(185, 28, 28, 0.9)"
+  statusDotIdle: {
+    backgroundColor: "#ef4444"
   },
-  statusPillText: {
-    color: "#f8fafc",
-    fontWeight: "800",
-    fontSize: 12,
-    letterSpacing: 0.6
+  statusDotActive: {
+    backgroundColor: "#22c55e"
   },
   overlay: {
     position: "absolute",
@@ -478,3 +529,4 @@ const styles = StyleSheet.create({
     fontWeight: "700"
   }
 });
+

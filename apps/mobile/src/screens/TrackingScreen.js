@@ -48,7 +48,7 @@ export default function TrackingScreen({
 
         <View style={styles.focusActions}>
           <ActionButton label="Tampilkan Map" onPress={onToggleMap} type="secondary" />
-          <ActionButton label="Stop Session" onPress={onStop} type="primary" />
+          <ActionButton label="Finish & Save" onPress={onStop} type="primary" />
           <ActionButton label="Reset" onPress={onReset} type="secondary" disabled={isTracking || isFocusingGps} />
         </View>
       </View>
@@ -60,33 +60,30 @@ export default function TrackingScreen({
       <Text style={styles.sectionTitle}>Tracking</Text>
       <Text style={styles.sectionSubtitle}>Siap mulai sesi. Fokus ke durasi, jarak, pace, lalu start.</Text>
 
-      <View style={styles.heroRow}>
-        <View style={[styles.heroCard, styles.heroCardAccent]}>
-          <Text style={styles.heroLabel}>Durasi</Text>
-          <Text style={styles.heroValue}>{formatDuration(durationSeconds)}</Text>
+      <View style={styles.metricsGrid}>
+        <View style={[styles.metricCard, styles.metricCardAccent]}>
+          <Text style={styles.metricLabel}>Durasi</Text>
+          <Text style={styles.metricValue}>{formatDuration(durationSeconds)}</Text>
         </View>
-        <View style={styles.heroCard}>
-          <Text style={styles.heroLabel}>Jarak</Text>
-          <Text style={styles.heroValue}>{metersToKm(distanceMeters).toFixed(2)} km</Text>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Jarak</Text>
+          <Text style={styles.metricValue}>{metersToKm(distanceMeters).toFixed(2)} km</Text>
         </View>
-      </View>
-
-      <View style={styles.supportGrid}>
-        <View style={styles.supportCard}>
-          <Text style={styles.supportLabel}>Pace Avg</Text>
-          <Text style={styles.supportValue}>{avgPace}</Text>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Pace Avg</Text>
+          <Text style={styles.metricValue}>{avgPace}</Text>
         </View>
-        <View style={styles.supportCard}>
-          <Text style={styles.supportLabel}>Pace Live</Text>
-          <Text style={styles.supportValue}>{metersPerSecondToPace(currentSpeedMps)}</Text>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>Pace Live</Text>
+          <Text style={styles.metricValue}>{metersPerSecondToPace(currentSpeedMps)}</Text>
         </View>
-        <View style={styles.supportCard}>
-          <Text style={styles.supportLabel}>GPS</Text>
-          <Text style={styles.supportValue}>{gpsReady ? "Ready" : "No"}</Text>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>GPS</Text>
+          <Text style={styles.metricValue}>{gpsReady ? "Ready" : "No"}</Text>
         </View>
-        <View style={styles.supportCard}>
-          <Text style={styles.supportLabel}>GPS Quality</Text>
-          <Text style={styles.supportValue}>{gpsQualityLabel}</Text>
+        <View style={styles.metricCard}>
+          <Text style={styles.metricLabel}>GPS Quality</Text>
+          <Text style={styles.metricValue}>{gpsQualityLabel}</Text>
         </View>
       </View>
 
@@ -102,7 +99,7 @@ export default function TrackingScreen({
 
       <View style={styles.actionsPanel}>
         <ActionButton
-          label={isFocusingGps ? "Focusing GPS..." : isTracking ? "Pause Session" : "Fokus GPS & Start"}
+          label={isFocusingGps ? "Focusing GPS..." : isTracking ? "Finish & Save" : "Fokus GPS & Start"}
           onPress={isTracking ? onStop : onStart}
           type="primary"
           disabled={isFocusingGps}
@@ -135,62 +132,37 @@ const styles = StyleSheet.create({
     color: "#94a3b8",
     fontSize: 13
   },
-  heroRow: {
+  metricsGrid: {
     marginTop: 14,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8
+    justifyContent: "space-between"
   },
-  heroCard: {
-    width: "48.8%",
+  metricCard: {
+    width: "48.5%",
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(71, 85, 105, 0.45)",
     backgroundColor: "#0b1220",
     paddingVertical: 12,
-    paddingHorizontal: 10
+    paddingHorizontal: 10,
+    marginBottom: 8
   },
-  heroCardAccent: {
+  metricCardAccent: {
     borderColor: "rgba(249, 115, 22, 0.55)",
     backgroundColor: "#111827"
   },
-  heroLabel: {
+  metricLabel: {
     color: "#94a3b8",
     fontSize: 11,
     fontWeight: "700",
     letterSpacing: 0.4
   },
-  heroValue: {
+  metricValue: {
     marginTop: 6,
     color: "#f8fafc",
     fontSize: 20,
     fontWeight: "800"
-  },
-  supportGrid: {
-    marginTop: 10,
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8
-  },
-  supportCard: {
-    width: "48.8%",
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "rgba(71, 85, 105, 0.4)",
-    backgroundColor: "#0b1220",
-    paddingVertical: 10,
-    paddingHorizontal: 11
-  },
-  supportLabel: {
-    color: "#94a3b8",
-    fontSize: 11,
-    fontWeight: "700"
-  },
-  supportValue: {
-    marginTop: 5,
-    color: "#e2e8f0",
-    fontSize: 16,
-    fontWeight: "700"
   },
   statusBox: {
     marginTop: 12,
@@ -266,11 +238,13 @@ const styles = StyleSheet.create({
   },
   focusWrap: {
     flex: 1,
-    justifyContent: "center",
+    justifyContent: "space-between",
     paddingTop: 10,
     paddingBottom: 18
   },
   focusMetricStack: {
+    flex: 1,
+    justifyContent: "center",
     gap: 22
   },
   focusMetric: {
@@ -285,7 +259,7 @@ const styles = StyleSheet.create({
   focusValue: {
     marginTop: 6,
     color: "#f8fafc",
-    fontSize: 46,
+    fontSize: 40,
     fontWeight: "900",
     letterSpacing: 0.8
   },

@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BottomTab from "./components/common/BottomTab";
 import useTracking from "./hooks/useTracking";
 import useShareCardEditor from "./hooks/useShareCardEditor";
+import { createActivity, getActivities, getMe, setApiAuthToken } from "./services/api";
 import TrackingScreen from "./screens/TrackingScreen";
 import ActivityScreen from "./screens/ActivityScreen";
 import ProfileScreen from "./screens/ProfileScreen";
@@ -32,11 +33,42 @@ const DARK_MAP_STYLE = [
   { featureType: "transit", stylers: [{ visibility: "off" }] }
 ];
 const SAVED_ACTIVITIES_KEY = "auratrack_saved_activities_v1";
+const AUTH_KEY = "auratrack_auth_v1";
+
+function mapServerActivityToLocal(item) {
+  const startedAt = item.started_at ? new Date(item.started_at) : new Date();
+  const durationSec = Number(item.moving_time_s ?? 0);
+  const distanceKm = Number(item.distance_km ?? 0);
+  const calories = Math.max(40, Math.round(distanceKm * 62));
+  const dateLabel = startedAt.toLocaleDateString("id-ID", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+  const timeLabel = startedAt.toLocaleTimeString("id-ID", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+
+  return {
+    id: String(item.id),
+    title: `Run ${distanceKm.toFixed(1)}K - ${dateLabel} ${timeLabel}`,
+    startedAt: startedAt.toISOString(),
+    dateLabel,
+    distanceKm,
+    durationSec,
+    avgPace: String(item.avg_pace ?? "--:--"),
+    elevationGainM: Number(item.elevation_gain_m ?? 0),
+    calories,
+    route: Array.isArray(item.route) ? item.route : []
+  };
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState("tracking");
   const [mapReady, setMapReady] = useState(false);
   const [savedActivities, setSavedActivities] = useState([]);
+  const [authState, setAuthState] = useState({ token: "", user: null });
   const [panelSnapByTab, setPanelSnapByTab] = useState({
     tracking: "half",
     activity: "half",
@@ -51,14 +83,36 @@ export default function App() {
 
   useEffect(() => {
     let mounted = true;
-    AsyncStorage.getItem(SAVED_ACTIVITIES_KEY)
-      .then((raw) => {
-        if (!mounted || !raw) {
+    Promise.all([AsyncStorage.getItem(SAVED_ACTIVITIES_KEY), AsyncStorage.getItem(AUTH_KEY)])
+      .then(([savedRaw, authRaw]) => {
+        if (!mounted) {
           return;
         }
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          setSavedActivities(parsed);
+
+        if (savedRaw) {
+          const parsed = JSON.parse(savedRaw);
+          if (Array.isArray(parsed)) {
+            setSavedActivities(parsed);
+          }
+        }
+
+        if (authRaw) {
+          const authParsed = JSON.parse(authRaw);
+          const token = String(authParsed?.token ?? "");
+          const user = authParsed?.user ?? null;
+          if (token) {
+            setApiAuthToken(token);
+            setAuthState({ token, user });
+            getActivities()
+              .then((serverActivities) => {
+                const mapped = Array.isArray(serverActivities) ? serverActivities.map(mapServerActivityToLocal) : [];
+                if (mapped.length > 0) {
+                  setSavedActivities(mapped);
+                  AsyncStorage.setItem(SAVED_ACTIVITIES_KEY, JSON.stringify(mapped)).catch(() => {});
+                }
+              })
+              .catch(() => {});
+          }
         }
       })
       .catch(() => {
@@ -80,6 +134,21 @@ export default function App() {
         return next;
       });
       setActiveTab("activity");
+
+      if (authState.token) {
+        createActivity(activity)
+          .then(() => getActivities())
+          .then((serverActivities) => {
+            const mapped = Array.isArray(serverActivities) ? serverActivities.map(mapServerActivityToLocal) : [];
+            if (mapped.length > 0) {
+              setSavedActivities(mapped);
+              AsyncStorage.setItem(SAVED_ACTIVITIES_KEY, JSON.stringify(mapped)).catch(() => {});
+            }
+          })
+          .catch(() => {
+            // keep local save when sync fails
+          });
+      }
     }
   });
   const share = useShareCardEditor({ savedActivities });
@@ -342,7 +411,36 @@ export default function App() {
           ) : null}
 
           {!showCollapsedPanel && activeTab === "activity" ? <ActivityScreen share={share} /> : null}
-          {!showCollapsedPanel && activeTab === "profile" ? <ProfileScreen /> : null}
+          {!showCollapsedPanel && activeTab === "profile" ? (
+            <ProfileScreen
+              authState={authState}
+              onAuthChanged={async ({ token, user }) => {
+                setApiAuthToken(token || "");
+                setAuthState({ token: token || "", user: user ?? null });
+                if (token) {
+                  await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ token, user }));
+                  try {
+                    const freshMe = await getMe();
+                    const normalizedUser = freshMe?.user ?? user ?? null;
+                    setAuthState({ token, user: normalizedUser });
+                    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ token, user: normalizedUser }));
+                  } catch {
+                    // keep local auth info
+                  }
+                  try {
+                    const serverActivities = await getActivities();
+                    const mapped = Array.isArray(serverActivities) ? serverActivities.map(mapServerActivityToLocal) : [];
+                    setSavedActivities(mapped);
+                    await AsyncStorage.setItem(SAVED_ACTIVITIES_KEY, JSON.stringify(mapped));
+                  } catch {
+                    // keep offline activities
+                  }
+                } else {
+                  await AsyncStorage.removeItem(AUTH_KEY);
+                }
+              }}
+            />
+          ) : null}
         </ScrollView>
       </View>
 

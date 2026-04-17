@@ -307,6 +307,7 @@ export default function useTracking({ onSessionSaved } = {}) {
       session: {
       id: `trk-${startedAt}`,
       title,
+      startedAt: startedDate.toISOString(),
       dateLabel: startedDate.toLocaleDateString("id-ID", {
         day: "2-digit",
         month: "short",

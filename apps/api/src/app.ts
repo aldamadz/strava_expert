@@ -6,6 +6,7 @@ import authRoute from "./routes/auth.js";
 import healthRoute from "./routes/health.js";
 import safetyRoute from "./routes/safety.js";
 import { db } from "./lib/db.js";
+import { closeRedis } from "./lib/redis.js";
 
 export function buildApp() {
   const app = Fastify({ logger: true });
@@ -18,6 +19,7 @@ export function buildApp() {
   app.register(safetyRoute);
   app.addHook("onClose", async () => {
     await db.end();
+    await closeRedis();
   });
 
   return app;

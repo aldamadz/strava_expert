@@ -42,6 +42,18 @@ async function fetchWithTimeout(url, options = {}) {
   }
 }
 
+async function extractErrorMessage(response, fallback) {
+  try {
+    const data = await response.json();
+    if (data?.message && typeof data.message === "string") {
+      return data.message;
+    }
+  } catch {
+    // ignore non-json body
+  }
+  return fallback;
+}
+
 export async function getHealth() {
   const response = await fetchWithTimeout(`${API_BASE_URL}/health`);
   if (!response.ok) {
@@ -71,7 +83,7 @@ export async function registerAuth({ email, password, fullName }) {
     })
   });
   if (!response.ok) {
-    throw new Error("Failed to register");
+    throw new Error(await extractErrorMessage(response, "Failed to register"));
   }
   return response.json();
 }
@@ -85,7 +97,7 @@ export async function loginAuth({ email, password }) {
     body: JSON.stringify({ email, password })
   });
   if (!response.ok) {
-    throw new Error("Failed to login");
+    throw new Error(await extractErrorMessage(response, "Failed to login"));
   }
   return response.json();
 }
@@ -96,6 +108,50 @@ export async function getMe() {
   });
   if (!response.ok) {
     throw new Error("Failed to fetch user");
+  }
+  return response.json();
+}
+
+export async function updateProfile({ fullName }) {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/api/v1/auth/me`, {
+    method: "PATCH",
+    headers: buildAuthHeaders({
+      "Content-Type": "application/json"
+    }),
+    body: JSON.stringify({
+      full_name: fullName
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await extractErrorMessage(response, "Failed to update profile"));
+  }
+  return response.json();
+}
+
+export async function changePassword({ currentPassword, newPassword }) {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/api/v1/auth/password`, {
+    method: "PATCH",
+    headers: buildAuthHeaders({
+      "Content-Type": "application/json"
+    }),
+    body: JSON.stringify({
+      current_password: currentPassword,
+      new_password: newPassword
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await extractErrorMessage(response, "Failed to update password"));
+  }
+  return response.json();
+}
+
+export async function deleteAccount() {
+  const response = await fetchWithTimeout(`${API_BASE_URL}/api/v1/auth/me`, {
+    method: "DELETE",
+    headers: buildAuthHeaders()
+  });
+  if (!response.ok) {
+    throw new Error(await extractErrorMessage(response, "Failed to delete account"));
   }
   return response.json();
 }

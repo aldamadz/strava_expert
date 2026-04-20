@@ -17,6 +17,10 @@ export default function ShareCardPreview({
   routeStrokeWidth,
   selectedDummy
 }) {
+  const distanceKm = Number(selectedDummy?.distanceKm ?? 0);
+  const avgPace = String(selectedDummy?.avgPace ?? "--:--");
+  const durationSec = Number(selectedDummy?.durationSec ?? 0);
+
   return (
     <View
       ref={shareCardRef}
@@ -64,17 +68,17 @@ export default function ShareCardPreview({
           <View style={styles.referenceStatsStack}>
             <Text style={[styles.referenceLabel, { fontSize: 10 * templateScale }]}>Jarak</Text>
             <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 34 * templateScale }]}>
-              {selectedDummy.distanceKm.toFixed(2).replace(".", ",")} km
+              {distanceKm.toFixed(2).replace(".", ",")} km
             </Text>
 
             <Text style={[styles.referenceLabelGap, { fontSize: 10 * templateScale }]}>Pace</Text>
             <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 34 * templateScale }]}>
-              {selectedDummy.avgPace} /km
+              {avgPace} /km
             </Text>
 
             <Text style={[styles.referenceLabelGap, { fontSize: 10 * templateScale }]}>Waktu</Text>
             <Text style={[styles.referenceValue, { fontSize: 26 * templateScale, lineHeight: 34 * templateScale }]}>
-              {formatDuration(selectedDummy.durationSec)}
+              {formatDuration(durationSec)}
             </Text>
           </View>
         </View>

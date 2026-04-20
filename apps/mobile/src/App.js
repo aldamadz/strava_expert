@@ -21,6 +21,7 @@ import { createActivity, getActivities, getMe, setApiAuthToken } from "./service
 import TrackingScreen from "./screens/TrackingScreen";
 import ActivityScreen from "./screens/ActivityScreen";
 import ProfileScreen from "./screens/ProfileScreen";
+import AuthScreen from "./screens/AuthScreen";
 
 const DARK_MAP_STYLE = [
   { elementType: "geometry", stylers: [{ color: "#111827" }] },
@@ -69,6 +70,7 @@ export default function App() {
   const [mapReady, setMapReady] = useState(false);
   const [savedActivities, setSavedActivities] = useState([]);
   const [authState, setAuthState] = useState({ token: "", user: null });
+  const [toast, setToast] = useState({ visible: false, message: "", tone: "info" });
   const [panelSnapByTab, setPanelSnapByTab] = useState({
     tracking: "half",
     activity: "half",
@@ -76,10 +78,39 @@ export default function App() {
   });
   const [panelHeight, setPanelHeight] = useState(360);
   const mapRef = useRef(null);
+  const toastTimerRef = useRef(null);
   const panelHeightRef = useRef(360);
   const panelDragStartHeightRef = useRef(0);
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
+
+  async function handleAuthChanged({ token, user }) {
+    setApiAuthToken(token || "");
+    setAuthState({ token: token || "", user: user ?? null });
+    if (token) {
+      await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ token, user }));
+      try {
+        const freshMe = await getMe();
+        const normalizedUser = freshMe?.user ?? user ?? null;
+        setAuthState({ token, user: normalizedUser });
+        await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ token, user: normalizedUser }));
+      } catch {
+        // keep local auth info
+      }
+      try {
+        const serverActivities = await getActivities();
+        const mapped = Array.isArray(serverActivities) ? serverActivities.map(mapServerActivityToLocal) : [];
+        setSavedActivities(mapped);
+        await AsyncStorage.setItem(SAVED_ACTIVITIES_KEY, JSON.stringify(mapped));
+      } catch {
+        // keep offline activities
+      }
+    } else {
+      await AsyncStorage.removeItem(AUTH_KEY);
+      setSavedActivities([]);
+      await AsyncStorage.removeItem(SAVED_ACTIVITIES_KEY);
+    }
+  }
 
   useEffect(() => {
     let mounted = true;
@@ -153,7 +184,7 @@ export default function App() {
   });
   const share = useShareCardEditor({ savedActivities });
 
-  const activeMapPath = activeTab === "activity" ? share.selectedDummy.route : tracking.path;
+  const activeMapPath = activeTab === "activity" ? (share.selectedDummy?.route ?? []) : tracking.path;
   const activeLastPoint = activeMapPath.length > 0 ? activeMapPath[activeMapPath.length - 1] : null;
   const isTrackingFocusMode = activeTab === "tracking" && tracking.isTracking && !tracking.showMap;
   const showBaseMap = activeTab === "activity" || (activeTab === "tracking" && tracking.showMap);
@@ -165,6 +196,21 @@ export default function App() {
   const collapsedHeight = 118;
   const halfHeight = Math.min(Math.round(screenHeight * 0.56), 500);
   const fullHeight = Math.min(Math.round(screenHeight * 0.86), screenHeight - (insets.top + 16));
+  const statusBarBackground = isTrackingFocusMode ? "#000000" : "#020617";
+
+  function showToast(message, tone = "info") {
+    if (!message) {
+      return;
+    }
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    setToast({ visible: true, message, tone });
+    toastTimerRef.current = setTimeout(() => {
+      setToast((prev) => ({ ...prev, visible: false }));
+      toastTimerRef.current = null;
+    }, 2600);
+  }
 
   function setActivePanelSnap(nextSnap) {
     setPanelSnapByTab((prev) => ({
@@ -300,9 +346,27 @@ export default function App() {
     );
   }
 
+  if (!authState.token) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <StatusBar barStyle="light-content" backgroundColor={statusBarBackground} translucent={false} />
+        <View style={styles.authGateWrap}>
+          <AuthScreen onAuthChanged={handleAuthChanged} showToast={showToast} topInset={insets.top} />
+        </View>
+        {toast.visible ? (
+          <View style={[styles.toastWrap, { top: insets.top + 12 }]}>
+            <View style={[styles.toastCard, toast.tone === "error" ? styles.toastError : styles.toastInfo]}>
+              <Text style={styles.toastText}>{toast.message}</Text>
+            </View>
+          </View>
+        ) : null}
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor={statusBarBackground} translucent={false} />
 
       {showBaseMap ? (
         <MapView
@@ -333,7 +397,7 @@ export default function App() {
       ) : null}
 
       {!isTrackingFocusMode && !isFullPanel ? (
-        <View style={[styles.topBar, { top: insets.top + 8 }]}>
+        <View style={[styles.topBar, { top: insets.top + 12 }]}>
           <View style={styles.brandWrap}>
             <Text style={styles.brand}>AuraTrack</Text>
             <Text style={styles.brandSub}>Outdoor Performance Lab</Text>
@@ -414,31 +478,8 @@ export default function App() {
           {!showCollapsedPanel && activeTab === "profile" ? (
             <ProfileScreen
               authState={authState}
-              onAuthChanged={async ({ token, user }) => {
-                setApiAuthToken(token || "");
-                setAuthState({ token: token || "", user: user ?? null });
-                if (token) {
-                  await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ token, user }));
-                  try {
-                    const freshMe = await getMe();
-                    const normalizedUser = freshMe?.user ?? user ?? null;
-                    setAuthState({ token, user: normalizedUser });
-                    await AsyncStorage.setItem(AUTH_KEY, JSON.stringify({ token, user: normalizedUser }));
-                  } catch {
-                    // keep local auth info
-                  }
-                  try {
-                    const serverActivities = await getActivities();
-                    const mapped = Array.isArray(serverActivities) ? serverActivities.map(mapServerActivityToLocal) : [];
-                    setSavedActivities(mapped);
-                    await AsyncStorage.setItem(SAVED_ACTIVITIES_KEY, JSON.stringify(mapped));
-                  } catch {
-                    // keep offline activities
-                  }
-                } else {
-                  await AsyncStorage.removeItem(AUTH_KEY);
-                }
-              }}
+              onAuthChanged={handleAuthChanged}
+              showToast={showToast}
             />
           ) : null}
         </ScrollView>
@@ -449,6 +490,13 @@ export default function App() {
           <BottomTab label="Tracking" active={activeTab === "tracking"} onPress={() => setActiveTab("tracking")} />
           <BottomTab label="Activity" active={activeTab === "activity"} onPress={() => setActiveTab("activity")} />
           <BottomTab label="Profile" active={activeTab === "profile"} onPress={() => setActiveTab("profile")} />
+        </View>
+      ) : null}
+      {toast.visible ? (
+        <View style={[styles.toastWrap, { top: insets.top + 12 }]}>
+          <View style={[styles.toastCard, toast.tone === "error" ? styles.toastError : styles.toastInfo]}>
+            <Text style={styles.toastText}>{toast.message}</Text>
+          </View>
         </View>
       ) : null}
     </SafeAreaView>
@@ -466,6 +514,39 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#0f172a",
     paddingHorizontal: 20
+  },
+  authGateWrap: {
+    flex: 1,
+    backgroundColor: "#020617",
+    paddingHorizontal: 16
+  },
+  toastWrap: {
+    position: "absolute",
+    left: 16,
+    right: 16,
+    alignItems: "center",
+    zIndex: 99
+  },
+  toastCard: {
+    maxWidth: "100%",
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
+  toastInfo: {
+    backgroundColor: "rgba(15, 23, 42, 0.95)",
+    borderColor: "rgba(56, 189, 248, 0.55)"
+  },
+  toastError: {
+    backgroundColor: "rgba(69, 10, 10, 0.95)",
+    borderColor: "rgba(248, 113, 113, 0.6)"
+  },
+  toastText: {
+    color: "#f8fafc",
+    fontSize: 12,
+    fontWeight: "700",
+    textAlign: "center"
   },
   loadingText: {
     marginTop: 10,

@@ -4,7 +4,6 @@ import * as ImagePicker from "expo-image-picker";
 import * as MediaLibrary from "expo-media-library";
 import * as Sharing from "expo-sharing";
 import { captureRef } from "react-native-view-shot";
-import { dummyActivities } from "../data/dummyActivities";
 import { buildNormalizedRoute, buildSmoothSvgPath, fitRouteToBounds } from "../utils/shareRoute";
 
 function clamp(value, min, max) {
@@ -12,7 +11,7 @@ function clamp(value, min, max) {
 }
 
 export default function useShareCardEditor({ savedActivities = [] } = {}) {
-  const activities = useMemo(() => [...savedActivities, ...dummyActivities], [savedActivities]);
+  const activities = useMemo(() => savedActivities, [savedActivities]);
   const [selectedDummyId, setSelectedDummyId] = useState(activities[0]?.id ?? "");
   const [backgroundUri, setBackgroundUri] = useState("");
   const [photoOpacity, setPhotoOpacity] = useState(0.75);
@@ -161,7 +160,7 @@ export default function useShareCardEditor({ savedActivities = [] } = {}) {
 
       await Sharing.shareAsync(uri, {
         mimeType: "image/png",
-        dialogTitle: `Share Overlay ${selectedDummy.title}`
+        dialogTitle: `Share Overlay ${selectedDummy?.title ?? "AuraTrack"}`
       });
     } catch {
       Alert.alert("Gagal Share", "Tidak bisa membuat overlay PNG. Coba lagi.");

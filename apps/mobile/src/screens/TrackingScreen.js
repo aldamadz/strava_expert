@@ -58,7 +58,7 @@ export default function TrackingScreen({
   return (
     <>
       <Text style={styles.sectionTitle}>Tracking</Text>
-      <Text style={styles.sectionSubtitle}>Siap mulai sesi. Fokus ke durasi, jarak, pace, lalu start.</Text>
+      <Text style={styles.sectionSubtitle}>Mulai sesi dengan GPS stabil, monitor pace live, lalu simpan hasilnya.</Text>
 
       <View style={styles.metricsGrid}>
         <View style={[styles.metricCard, styles.metricCardAccent]}>
@@ -123,7 +123,7 @@ export default function TrackingScreen({
 
 const styles = StyleSheet.create({
   sectionTitle: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: "800",
     color: "#f8fafc"
   },
@@ -140,33 +140,33 @@ const styles = StyleSheet.create({
   },
   metricCard: {
     width: "48.5%",
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(71, 85, 105, 0.45)",
     backgroundColor: "#0b1220",
-    paddingVertical: 12,
-    paddingHorizontal: 10,
+    paddingVertical: 13,
+    paddingHorizontal: 11,
     marginBottom: 8
   },
   metricCardAccent: {
-    borderColor: "rgba(249, 115, 22, 0.55)",
-    backgroundColor: "#111827"
+    borderColor: "rgba(249, 115, 22, 0.7)",
+    backgroundColor: "#1a2234"
   },
   metricLabel: {
     color: "#94a3b8",
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: "700",
-    letterSpacing: 0.4
+    letterSpacing: 0.7
   },
   metricValue: {
     marginTop: 6,
     color: "#f8fafc",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: "800"
   },
   statusBox: {
-    marginTop: 12,
-    borderRadius: 12,
+    marginTop: 10,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(71, 85, 105, 0.45)",
     backgroundColor: "#0b1220",
@@ -202,8 +202,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#ef4444"
   },
   actionsPanel: {
-    marginTop: 12,
-    borderRadius: 14,
+    marginTop: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(71, 85, 105, 0.4)",
     backgroundColor: "#0b1220",

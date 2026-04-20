@@ -3,6 +3,7 @@ import { db } from "../lib/db.js";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 import { readBearerToken, verifyAuthToken } from "../lib/auth.js";
+import { redisDel, redisGet, redisSetEx } from "../lib/redis.js";
 
 type Activity = {
   id: string;
@@ -39,6 +40,16 @@ const activitiesRoute: FastifyPluginAsync = async (app) => {
     if (!auth) {
       return reply.code(401).send({ message: "Unauthorized" });
     }
+
+    const cacheKey = `activities:${auth.userId}`;
+    const cached = await redisGet(cacheKey);
+    if (cached) {
+      try {
+        return JSON.parse(cached);
+      } catch {
+        // fallback to DB query
+      }
+    }
     const { rows } = await db.query<{
       id: string;
       type: "run" | "ride" | "walk";
@@ -71,10 +82,13 @@ const activitiesRoute: FastifyPluginAsync = async (app) => {
       limit 100
     `, [auth.userId]);
 
-    return rows.map((row: Activity) => ({
+    const mapped = rows.map((row: Activity) => ({
       ...row,
       avg_pace: formatPace(row.moving_time_s, Math.round(row.distance_km * 1000))
     }));
+
+    await redisSetEx(cacheKey, 30, JSON.stringify(mapped));
+    return mapped;
   });
 
   app.post("/api/v1/activities", async (request, reply) => {
@@ -152,6 +166,8 @@ const activitiesRoute: FastifyPluginAsync = async (app) => {
         values
       );
     }
+
+    await redisDel(`activities:${auth.userId}`);
 
     return reply.code(201).send({
       id: activityId,

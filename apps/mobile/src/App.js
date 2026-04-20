@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
+  Image,
   PanResponder,
   Pressable,
   SafeAreaView,
@@ -66,6 +69,7 @@ function mapServerActivityToLocal(item) {
 }
 
 export default function App() {
+  const [showBootSplash, setShowBootSplash] = useState(true);
   const [activeTab, setActiveTab] = useState("tracking");
   const [mapReady, setMapReady] = useState(false);
   const [savedActivities, setSavedActivities] = useState([]);
@@ -81,6 +85,11 @@ export default function App() {
   const toastTimerRef = useRef(null);
   const panelHeightRef = useRef(360);
   const panelDragStartHeightRef = useRef(0);
+  const splashOpacity = useRef(new Animated.Value(0)).current;
+  const splashScale = useRef(new Animated.Value(0.94)).current;
+  const splashOrbit = useRef(new Animated.Value(0)).current;
+  const splashPulse = useRef(new Animated.Value(0)).current;
+  const splashProgress = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
   const { height: screenHeight } = useWindowDimensions();
 
@@ -111,6 +120,75 @@ export default function App() {
       await AsyncStorage.removeItem(SAVED_ACTIVITIES_KEY);
     }
   }
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(splashOpacity, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(splashScale, {
+        toValue: 1,
+        duration: 420,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]).start();
+
+    const orbitLoop = Animated.loop(
+      Animated.timing(splashOrbit, {
+        toValue: 1,
+        duration: 3200,
+        easing: Easing.linear,
+        useNativeDriver: true
+      })
+    );
+    const pulseLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(splashPulse, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true
+        }),
+        Animated.timing(splashPulse, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true
+        })
+      ])
+    );
+    orbitLoop.start();
+    pulseLoop.start();
+    Animated.timing(splashProgress, {
+      toValue: 1,
+      duration: 2100,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+
+    const timeoutId = setTimeout(() => {
+      Animated.timing(splashOpacity, {
+        toValue: 0,
+        duration: 260,
+        easing: Easing.in(Easing.quad),
+        useNativeDriver: true
+      }).start(({ finished }) => {
+        if (finished) {
+          setShowBootSplash(false);
+        }
+      });
+    }, 2400);
+
+    return () => {
+      orbitLoop.stop();
+      pulseLoop.stop();
+      clearTimeout(timeoutId);
+    };
+  }, [splashOpacity, splashScale, splashOrbit, splashPulse, splashProgress]);
 
   useEffect(() => {
     let mounted = true;
@@ -328,6 +406,82 @@ export default function App() {
     );
   }, [activeLastPoint]);
 
+  if (showBootSplash) {
+    const orbitRotate = splashOrbit.interpolate({
+      inputRange: [0, 1],
+      outputRange: ["0deg", "360deg"]
+    });
+    const pulseScale = splashPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [1, 1.08]
+    });
+    const pulseOpacity = splashPulse.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.28, 0.5]
+    });
+    const progressTranslate = splashProgress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-132, 0]
+    });
+
+    return (
+      <SafeAreaView style={styles.splashSafe}>
+        <StatusBar barStyle="light-content" backgroundColor="#020617" translucent={false} />
+        <View style={styles.splashBackdrop}>
+          <View style={styles.splashGrid} />
+          <View style={styles.splashGlowPrimary} />
+          <View style={styles.splashGlowSecondary} />
+          <Animated.View
+            style={[
+              styles.splashPulseHalo,
+              {
+                opacity: pulseOpacity,
+                transform: [{ scale: pulseScale }]
+              }
+            ]}
+          />
+          <Animated.View
+            style={[
+              styles.splashContent,
+              {
+                opacity: splashOpacity,
+                transform: [{ scale: splashScale }]
+              }
+            ]}
+          >
+            <View style={styles.splashLogoRing}>
+              <Animated.View
+                style={[
+                  styles.splashOrbitRing,
+                  {
+                    transform: [{ rotate: orbitRotate }]
+                  }
+                ]}
+              >
+                <View style={[styles.splashOrbitDot, styles.splashOrbitDotPrimary]} />
+                <View style={[styles.splashOrbitDot, styles.splashOrbitDotSecondary]} />
+              </Animated.View>
+              <Image source={require("../assets/icon.png")} style={styles.splashLogo} resizeMode="contain" />
+            </View>
+            <Text style={styles.splashBrand}>AURATRACK</Text>
+            <Text style={styles.splashTagline}>Outdoor performance, tracked cleanly.</Text>
+            <View style={styles.splashProgressTrack}>
+              <Animated.View
+                style={[
+                  styles.splashProgressFill,
+                  {
+                    transform: [{ translateX: progressTranslate }]
+                  }
+                ]}
+              />
+            </View>
+            <Text style={styles.splashLoadingText}>Preparing your run space</Text>
+          </Animated.View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   if (tracking.permission === "checking") {
     return (
       <SafeAreaView style={styles.centered}>
@@ -504,6 +658,128 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  splashSafe: {
+    flex: 1,
+    backgroundColor: "#020617"
+  },
+  splashBackdrop: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#020617",
+    overflow: "hidden"
+  },
+  splashGrid: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    opacity: 0.06,
+    backgroundColor: "#020617"
+  },
+  splashGlowPrimary: {
+    position: "absolute",
+    top: "14%",
+    width: 280,
+    height: 280,
+    borderRadius: 999,
+    backgroundColor: "rgba(56, 189, 248, 0.14)"
+  },
+  splashGlowSecondary: {
+    position: "absolute",
+    bottom: "13%",
+    width: 250,
+    height: 250,
+    borderRadius: 999,
+    backgroundColor: "rgba(249, 115, 22, 0.16)"
+  },
+  splashPulseHalo: {
+    position: "absolute",
+    width: 178,
+    height: 178,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(56, 189, 248, 0.22)"
+  },
+  splashContent: {
+    alignItems: "center",
+    paddingHorizontal: 24
+  },
+  splashLogoRing: {
+    position: "relative",
+    width: 124,
+    height: 124,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(11, 18, 32, 0.92)",
+    borderWidth: 1,
+    borderColor: "rgba(148, 163, 184, 0.28)"
+  },
+  splashOrbitRing: {
+    position: "absolute",
+    width: 152,
+    height: 152,
+    borderRadius: 999,
+    alignItems: "center",
+    justifyContent: "center"
+  },
+  splashOrbitDot: {
+    position: "absolute",
+    width: 11,
+    height: 11,
+    borderRadius: 999
+  },
+  splashOrbitDotPrimary: {
+    top: 4,
+    backgroundColor: "#38bdf8"
+  },
+  splashOrbitDotSecondary: {
+    bottom: 10,
+    right: 20,
+    backgroundColor: "#f97316"
+  },
+  splashLogo: {
+    width: 78,
+    height: 78
+  },
+  splashBrand: {
+    marginTop: 22,
+    color: "#f8fafc",
+    fontSize: 30,
+    fontWeight: "900",
+    letterSpacing: 3
+  },
+  splashTagline: {
+    marginTop: 10,
+    color: "#94a3b8",
+    fontSize: 13,
+    textAlign: "center",
+    letterSpacing: 0.3
+  },
+  splashProgressTrack: {
+    marginTop: 18,
+    width: 132,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: "rgba(148, 163, 184, 0.16)",
+    overflow: "hidden"
+  },
+  splashProgressFill: {
+    width: 132,
+    height: 4,
+    borderRadius: 999,
+    backgroundColor: "#f97316"
+  },
+  splashLoadingText: {
+    marginTop: 12,
+    color: "#64748b",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.9,
+    textTransform: "uppercase"
+  },
   safe: {
     flex: 1,
     backgroundColor: "#020617"

@@ -1,5 +1,17 @@
-import { useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import {
+  Animated,
+  Easing,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+  useWindowDimensions
+} from "react-native";
 import { loginAuth, registerAuth } from "../services/api";
 
 export default function AuthScreen({ onAuthChanged, showToast = () => {}, topInset = 0 }) {
@@ -8,6 +20,59 @@ export default function AuthScreen({ onAuthChanged, showToast = () => {}, topIns
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const { width } = useWindowDimensions();
+  const cardAnim = useRef(new Animated.Value(1)).current;
+  const switchAnim = useRef(new Animated.Value(0)).current;
+  const switchWidth = Math.max(0, width - 32);
+  const switchPillWidth = Math.max(0, (switchWidth - 16) / 2);
+
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(cardAnim, {
+        toValue: 0,
+        duration: 120,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true
+      }),
+      Animated.timing(cardAnim, {
+        toValue: 1,
+        duration: 220,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]).start();
+
+    Animated.timing(switchAnim, {
+      toValue: mode === "login" ? 0 : 1,
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false
+    }).start();
+  }, [mode, cardAnim, switchAnim]);
+
+  const cardAnimatedStyle = {
+    opacity: cardAnim,
+    transform: [
+      {
+        translateY: cardAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [12, 0]
+        })
+      }
+    ]
+  };
+
+  const switchPillStyle = {
+    width: switchPillWidth,
+    transform: [
+      {
+        translateX: switchAnim.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0, switchPillWidth]
+        })
+      }
+    ]
+  };
 
   async function handleLogin() {
     if (!email || !password) {
@@ -52,99 +117,123 @@ export default function AuthScreen({ onAuthChanged, showToast = () => {}, topIns
   }
 
   return (
-    <ScrollView
-      contentContainerStyle={[styles.wrap, { paddingTop: Math.max(26, topInset + 14) }]}
-      showsVerticalScrollIndicator={false}
-      keyboardShouldPersistTaps="handled"
+    <KeyboardAvoidingView
+      style={styles.keyboardWrap}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? topInset : 0}
     >
-      <View style={styles.hero}>
-        <Text style={styles.brand}>AURATRACK</Text>
-        <Text style={styles.headline}>Train sharp. Track clean.</Text>
-        <Text style={styles.subhead}>Mulai sesi lari dengan metrik real-time dan simpan semua aktivitas ke server.</Text>
-      </View>
+      <ScrollView
+        contentContainerStyle={[styles.wrap, { paddingTop: Math.max(26, topInset + 14) }]}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
+        <View style={styles.hero}>
+          <View style={styles.heroGlow} />
+          <Text style={styles.brand}>AURATRACK</Text>
+          <Text style={styles.headline}>Train sharp. Track clean.</Text>
+          <Text style={styles.subhead}>Mulai sesi lari dengan metrik real-time dan simpan semua aktivitas ke server.</Text>
+        </View>
 
-      <View style={styles.modeSwitch}>
-        <Pressable
-          style={[styles.modeButton, mode === "login" ? styles.modeButtonActive : null]}
-          onPress={() => setMode("login")}
-        >
-          <Text style={[styles.modeButtonText, mode === "login" ? styles.modeButtonTextActive : null]}>Login</Text>
-        </Pressable>
-        <Pressable
-          style={[styles.modeButton, mode === "register" ? styles.modeButtonActive : null]}
-          onPress={() => setMode("register")}
-        >
-          <Text style={[styles.modeButtonText, mode === "register" ? styles.modeButtonTextActive : null]}>Register</Text>
-        </Pressable>
-      </View>
+        <View style={styles.modeSwitch}>
+          <Animated.View style={[styles.modeSwitchPill, switchPillStyle]} />
+          <Pressable style={styles.modeButton} onPress={() => setMode("login")}>
+            <Text style={[styles.modeButtonText, mode === "login" ? styles.modeButtonTextActive : null]}>Login</Text>
+          </Pressable>
+          <Pressable style={styles.modeButton} onPress={() => setMode("register")}>
+            <Text style={[styles.modeButtonText, mode === "register" ? styles.modeButtonTextActive : null]}>Register</Text>
+          </Pressable>
+        </View>
 
-      <View style={styles.card}>
-        <Text style={styles.cardTitle}>{mode === "login" ? "Welcome Back" : "Create Account"}</Text>
-        <Text style={styles.cardSubtitle}>
-          {mode === "login"
-            ? "Masuk untuk lanjut ke dashboard aktivitas."
-            : "Daftar akun baru untuk sinkronisasi lintas device."}
-        </Text>
+        <Animated.View style={[styles.card, cardAnimatedStyle]}>
+          <Text style={styles.cardTitle}>{mode === "login" ? "Welcome Back" : "Create Account"}</Text>
+          <Text style={styles.cardSubtitle}>
+            {mode === "login"
+              ? "Masuk untuk lanjut ke dashboard aktivitas."
+              : "Daftar akun baru untuk sinkronisasi lintas device."}
+          </Text>
 
-        {mode === "register" ? (
+          {mode === "register" ? (
+            <TextInput
+              value={fullName}
+              onChangeText={setFullName}
+              placeholder="Nama lengkap (opsional)"
+              placeholderTextColor="#64748b"
+              style={styles.input}
+              autoCapitalize="words"
+              returnKeyType="next"
+            />
+          ) : null}
           <TextInput
-            value={fullName}
-            onChangeText={setFullName}
-            placeholder="Nama lengkap (opsional)"
+            value={email}
+            onChangeText={setEmail}
+            placeholder="Email"
             placeholderTextColor="#64748b"
             style={styles.input}
-            autoCapitalize="words"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            autoComplete="email"
+            returnKeyType="next"
           />
-        ) : null}
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="Email"
-          placeholderTextColor="#64748b"
-          style={styles.input}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
-        <TextInput
-          value={password}
-          onChangeText={setPassword}
-          placeholder={mode === "register" ? "Password (min 6)" : "Password"}
-          placeholderTextColor="#64748b"
-          style={styles.input}
-          secureTextEntry
-        />
+          <TextInput
+            value={password}
+            onChangeText={setPassword}
+            placeholder={mode === "register" ? "Password (min 6)" : "Password"}
+            placeholderTextColor="#64748b"
+            style={styles.input}
+            secureTextEntry
+            autoComplete={mode === "login" ? "password" : "new-password"}
+            returnKeyType="done"
+            onSubmitEditing={mode === "login" ? handleLogin : handleRegister}
+          />
 
-        <Pressable
-          style={[styles.submitButton, loading ? styles.submitButtonDisabled : null]}
-          onPress={mode === "login" ? handleLogin : handleRegister}
-          disabled={loading}
-        >
-          <Text style={styles.submitButtonText}>
-            {loading ? "Please wait..." : mode === "login" ? "Masuk ke AuraTrack" : "Buat Akun"}
-          </Text>
-        </Pressable>
+          <Pressable
+            style={[styles.submitButton, loading ? styles.submitButtonDisabled : null]}
+            onPress={mode === "login" ? handleLogin : handleRegister}
+            disabled={loading}
+          >
+            <Text style={styles.submitButtonText}>
+              {loading ? "Please wait..." : mode === "login" ? "Masuk ke AuraTrack" : "Buat Akun"}
+            </Text>
+          </Pressable>
 
-        <Pressable onPress={() => setMode((prev) => (prev === "login" ? "register" : "login"))} style={styles.swapAction}>
-          <Text style={styles.swapActionText}>
-            {mode === "login" ? "Belum punya akun? Daftar di sini." : "Sudah punya akun? Login di sini."}
-          </Text>
-        </Pressable>
-      </View>
-    </ScrollView>
+          <Pressable onPress={() => setMode((prev) => (prev === "login" ? "register" : "login"))} style={styles.swapAction}>
+            <Text style={styles.swapActionText}>
+              {mode === "login" ? "Belum punya akun? Daftar di sini." : "Sudah punya akun? Login di sini."}
+            </Text>
+          </Pressable>
+        </Animated.View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
+  keyboardWrap: {
+    flex: 1
+  },
   wrap: {
+    flexGrow: 1,
     paddingBottom: 28
   },
   hero: {
+    position: "relative",
+    overflow: "hidden",
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(56, 189, 248, 0.32)",
     backgroundColor: "#0b1220",
     paddingHorizontal: 18,
     paddingVertical: 18
+  },
+  heroGlow: {
+    position: "absolute",
+    right: -22,
+    top: -12,
+    width: 130,
+    height: 130,
+    borderRadius: 999,
+    backgroundColor: "rgba(249, 115, 22, 0.14)"
   },
   brand: {
     color: "#38bdf8",
@@ -166,6 +255,8 @@ const styles = StyleSheet.create({
   },
   modeSwitch: {
     marginTop: 14,
+    position: "relative",
+    overflow: "hidden",
     borderRadius: 12,
     borderWidth: 1,
     borderColor: "rgba(71, 85, 105, 0.45)",
@@ -174,14 +265,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 6
   },
+  modeSwitchPill: {
+    position: "absolute",
+    left: 5,
+    top: 5,
+    bottom: 5,
+    borderRadius: 8,
+    backgroundColor: "#111827"
+  },
   modeButton: {
     flex: 1,
     borderRadius: 8,
     paddingVertical: 10,
-    alignItems: "center"
-  },
-  modeButtonActive: {
-    backgroundColor: "#111827"
+    alignItems: "center",
+    zIndex: 1
   },
   modeButtonText: {
     color: "#94a3b8",
@@ -196,7 +293,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "rgba(71, 85, 105, 0.45)",
-    backgroundColor: "#0b1220",
+    backgroundColor: "#09111f",
     padding: 16
   },
   cardTitle: {

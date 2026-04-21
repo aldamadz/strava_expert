@@ -1,4 +1,4 @@
- | Alternatif tiang | Estimasi harga satuan | Kebutuhan | Total 10 tiang |
+| Alternatif tiang | Estimasi harga satuan | Kebutuhan | Total 10 tiang |
   |---|---:|---:|---:|
   | Tiang galvanis jadi 3 meter | Rp278.000 - Rp364.000 | 10 tiang | Rp2.780.000 - Rp3.640.000 |
   | Pipa galvanis 2 inch 6 meter, dipotong jadi 2 tiang @3 meter | Rp315.500 - Rp572.873 / batang | 5 batang |

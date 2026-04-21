@@ -165,49 +165,65 @@ export async function appendTrackingSamples(samples) {
   return withNotificationState;
 }
 
-if (!TaskManager.isTaskDefined(TRACKING_TASK_NAME)) {
-  TaskManager.defineTask(TRACKING_TASK_NAME, async ({ data, error }) => {
-    if (error) {
-      return;
-    }
-    const locations = data?.locations ?? [];
-    if (locations.length === 0) {
-      return;
-    }
-    const samples = locations.map(toSample);
-    await appendTrackingSamples(samples);
-  });
+try {
+  if (!TaskManager.isTaskDefined(TRACKING_TASK_NAME)) {
+    TaskManager.defineTask(TRACKING_TASK_NAME, async ({ data, error }) => {
+      if (error) {
+        return;
+      }
+      const locations = data?.locations ?? [];
+      if (locations.length === 0) {
+        return;
+      }
+      const samples = locations.map(toSample);
+      await appendTrackingSamples(samples);
+    });
+  }
+} catch {
+  // Do not crash app startup if task registration is unavailable on a device/build.
 }
 
 export async function startBackgroundTracking() {
-  const started = await Location.hasStartedLocationUpdatesAsync(TRACKING_TASK_NAME);
-  if (started) {
-    return;
-  }
-
-  await Location.startLocationUpdatesAsync(TRACKING_TASK_NAME, {
-    accuracy: Location.Accuracy.BestForNavigation,
-    timeInterval: 1000,
-    distanceInterval: 1,
-    pausesUpdatesAutomatically: false,
-    activityType: Location.ActivityType.Fitness,
-    foregroundService: {
-      notificationTitle: "AuraTrack Tracking Aktif",
-      notificationBody: "Tracking tetap berjalan di background",
-      notificationColor: "#ea580c"
+  try {
+    const started = await Location.hasStartedLocationUpdatesAsync(TRACKING_TASK_NAME);
+    if (started) {
+      return;
     }
-  });
+
+    await Location.startLocationUpdatesAsync(TRACKING_TASK_NAME, {
+      accuracy: Location.Accuracy.BestForNavigation,
+      timeInterval: 1000,
+      distanceInterval: 1,
+      pausesUpdatesAutomatically: false,
+      activityType: Location.ActivityType.Fitness,
+      foregroundService: {
+        notificationTitle: "AuraTrack Tracking Aktif",
+        notificationBody: "Tracking tetap berjalan di background",
+        notificationColor: "#ea580c"
+      }
+    });
+  } catch {
+    // Allow foreground tracking to continue even if background tracking can't start.
+  }
 }
 
 export async function stopBackgroundTracking() {
-  const started = await Location.hasStartedLocationUpdatesAsync(TRACKING_TASK_NAME);
-  if (started) {
-    await Location.stopLocationUpdatesAsync(TRACKING_TASK_NAME);
+  try {
+    const started = await Location.hasStartedLocationUpdatesAsync(TRACKING_TASK_NAME);
+    if (started) {
+      await Location.stopLocationUpdatesAsync(TRACKING_TASK_NAME);
+    }
+  } catch {
+    // ignore cleanup failures
   }
 }
 
 export async function isBackgroundTrackingActive() {
-  return Location.hasStartedLocationUpdatesAsync(TRACKING_TASK_NAME);
+  try {
+    return await Location.hasStartedLocationUpdatesAsync(TRACKING_TASK_NAME);
+  } catch {
+    return false;
+  }
 }
 
 export function toTrackingSample(location) {

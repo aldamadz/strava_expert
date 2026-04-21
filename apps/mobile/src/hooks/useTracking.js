@@ -94,9 +94,16 @@ export default function useTracking({ onSessionSaved } = {}) {
   useEffect(() => {
     let isMounted = true;
     async function initializePermission() {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (isMounted) {
-        setPermission(status);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (isMounted) {
+          setPermission(status);
+        }
+      } catch {
+        if (isMounted) {
+          setPermission("denied");
+          setLocationError("Gagal mengakses modul lokasi di perangkat ini.");
+        }
       }
     }
     initializePermission();

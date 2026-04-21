@@ -1,0 +1,27 @@
+%%{init: {"theme": "base", "flowchart": {"htmlLabels": true, "curve": "basis", "nodeSpacing": 28, "rankSpacing": 42}, "themeVariables": {"fontFamily": "Arial, Helvetica, sans-serif", "fontSize": "15px", "primaryColor": "#ffffff", "primaryTextColor": "#0f172a", "primaryBorderColor": "#94a3b8", "lineColor": "#64748b"}}}%%
+flowchart LR
+  P["PLN + proteksi<br/>Kabel NYY, MCB,<br/>ELCB/RCCB, SPD,<br/>grounding rod"] --> B["Panel kontrol outdoor IP65<br/>PSU DC, terminal kabel,<br/>conduit, box junction"]
+  B --> C["ESP32 controller<br/>selector manual/auto<br/>dan logika kontrol"]
+  C --> Q{"Kondisi<br/>optimal?"}
+  Q -->|Ya| R["Relay output<br/>kontaktor pompa,<br/>overload relay,<br/>solenoid valve"]
+  Q -->|Tidak| X["Standby<br/>pompa dan valve mati"]
+  R --> O["Pompa dan tandon<br/>jetpump -> tandon -><br/>booster pump"]
+  O --> W["Filtrasi dan monitoring<br/>disc filter, flow meter,<br/>pressure sensor/gauge"]
+  W --> Z["Penyiraman<br/>solenoid 1 inch -> HDPE<br/>submain -> lateral 16 mm<br/>-> fitting -> sprinkler"]
+  Z --> L["Monitoring dan logging<br/>via dashboard / aplikasi"]
+  X --> L
+
+  S["Sensor input<br/>float switch atas/bawah,<br/>rain sensor, flow meter,<br/>pressure sensor"] --> C
+  K["Komunikasi IoT<br/>modem 4G/router,<br/>antena eksternal,<br/>SIM card internet"] <--> C
+  A["Sumber air dan intake<br/>foot valve, saringan awal,<br/>check valve"] --> O
+
+  classDef power fill:#fef3c7,color:#0f172a,stroke:#d97706,stroke-width:2px;
+  classDef panel fill:#e0f2fe,color:#0f172a,stroke:#0284c7,stroke-width:2px;
+  classDef control fill:#dcfce7,color:#0f172a,stroke:#16a34a,stroke-width:2px;
+  classDef water fill:#dbeafe,color:#0f172a,stroke:#2563eb,stroke-width:2px;
+  classDef logic fill:#fce7f3,color:#0f172a,stroke:#db2777,stroke-width:2px;
+  class P power;
+  class B panel;
+  class C,R,S,K control;
+  class A,O,W,Z water;
+  class Q,X,L logic;
